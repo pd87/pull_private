@@ -209,93 +209,74 @@ public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
     List<Enqrhist> enquiries, 
     Map<String, String> userMapping,
     LocalDate reportDate) {
-    
+
     Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
     rankSummaries.put("A", new FintechCapsDaysSummary());
     rankSummaries.put("B", new FintechCapsDaysSummary());
     rankSummaries.put("C", new FintechCapsDaysSummary());
     rankSummaries.put("D", new FintechCapsDaysSummary());
-    
+
     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
-    
-    // First organize enquiries by rank and fintechId
-    Map<String, Map<String, Set<YearMonth>>> enquiriesByRank = new HashMap<>();
-    
+
+    // Track ALL valid enquiries per rank and period (no deduping across dates)
+    Map<String, List<LocalDate>> enquiriesFor30Days = new HashMap<>();
+    Map<String, List<LocalDate>> enquiriesFor60Days = new HashMap<>();
+    Map<String, List<LocalDate>> enquiriesFor90Days = new HashMap<>();
+    Map<String, List<LocalDate>> enquiriesFor180Days = new HashMap<>();
+
     for (Enqrhist enquiry : enquiries) {
         if (enquiry == null || enquiry.getEnquiryPurposeCd() == null || 
             !enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
             continue;
         }
-        
+
         try {
             String fintechId = enquiry.getSegmentCode();
             LocalDate enquiryDate = LocalDate.parse(enquiry.getEnquiryDate(), dateFormatter);
-            YearMonth enquiryMonth = YearMonth.from(enquiryDate);
             
             if (enquiryDate.isAfter(reportDate)) continue;
-            
+
             String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
-            
-            enquiriesByRank.putIfAbsent(rank, new HashMap<>());
-            enquiriesByRank.get(rank).putIfAbsent(fintechId, new HashSet<>());
-            
-            // Add the month of this enquiry
-            enquiriesByRank.get(rank).get(fintechId).add(enquiryMonth);
+            long daysBetween = ChronoUnit.DAYS.between(enquiryDate, reportDate);
+
+            // Add to period-specific lists (no deduping yet)
+            if (daysBetween <= 30) {
+                enquiriesFor30Days.computeIfAbsent(rank, k -> new ArrayList<>()).add(enquiryDate);
+            }
+            if (daysBetween <= 60) {
+                enquiriesFor60Days.computeIfAbsent(rank, k -> new ArrayList<>()).add(enquiryDate);
+            }
+            if (daysBetween <= 90) {
+                enquiriesFor90Days.computeIfAbsent(rank, k -> new ArrayList<>()).add(enquiryDate);
+            }
+            if (daysBetween <= 180) {
+                enquiriesFor180Days.computeIfAbsent(rank, k -> new ArrayList<>()).add(enquiryDate);
+            }
         } catch (DateTimeParseException e) {
             continue;
         }
     }
-    
-    // Calculate counts for each period
-    for (Map.Entry<String, Map<String, Set<YearMonth>>> rankEntry : enquiriesByRank.entrySet()) {
-        String rank = rankEntry.getKey();
-        Map<String, Set<YearMonth>> fintechMonths = rankEntry.getValue();
-        
+
+    // Deduplicate SAME-DAY enquiries and count distinct dates per fintech
+    for (String rank : rankSummaries.keySet()) {
         FintechCapsDaysSummary summary = rankSummaries.get(rank);
-        if (summary == null) continue;
-        
-        // For each fintech, count how many distinct months they have enquiries in each period
-        int count30 = 0;
-        int count60 = 0;
-        int count90 = 0;
-        int count180 = 0;
-        
-        YearMonth reportMonth = YearMonth.from(reportDate);
-        
-        for (Set<YearMonth> months : fintechMonths.values()) {
-            boolean in30 = false;
-            boolean in60 = false;
-            boolean in90 = false;
-            boolean in180 = false;
-            
-            for (YearMonth month : months) {
-                long monthsBetween = ChronoUnit.MONTHS.between(month, reportMonth);
-                
-                if (monthsBetween <= 1) { // Within 30 days (~1 month)
-                    in30 = true;
-                }
-                if (monthsBetween <= 2) { // Within 60 days (~2 months)
-                    in60 = true;
-                }
-                if (monthsBetween <= 3) { // Within 90 days (~3 months)
-                    in90 = true;
-                }
-                if (monthsBetween <= 6) { // Within 180 days (~6 months)
-                    in180 = true;
-                }
-            }
-            
-            if (in30) count30++;
-            if (in60) count60++;
-            if (in90) count90++;
-            if (in180) count180++;
-        }
-        
-        summary.setcAPSLast30Days(count30);
-        summary.setcAPSLast60Days(count60);
-        summary.setcAPSLast90Days(count90);
-        summary.setcAPSLast180Days(count180);
+
+        // Last 30 Days: Dedup same-day enquiries, then count remaining dates
+        Set<LocalDate> uniqueDates30 = new HashSet<>(enquiriesFor30Days.getOrDefault(rank, Collections.emptyList()));
+        summary.setcAPSLast30Days(uniqueDates30.size());
+
+        // Last 60 Days: Include ALL enquiries (even outside 30 days)
+        Set<LocalDate> uniqueDates60 = new HashSet<>(enquiriesFor60Days.getOrDefault(rank, Collections.emptyList()));
+        summary.setcAPSLast60Days(uniqueDates60.size());
+
+        // Last 90 Days
+        Set<LocalDate> uniqueDates90 = new HashSet<>(enquiriesFor90Days.getOrDefault(rank, Collections.emptyList()));
+        summary.setcAPSLast90Days(uniqueDates90.size());
+
+        // Last 180 Days
+        Set<LocalDate> uniqueDates180 = new HashSet<>(enquiriesFor180Days.getOrDefault(rank, Collections.emptyList()));
+        summary.setcAPSLast180Days(uniqueDates180.size());
     }
-    
+
     return rankSummaries;
 }

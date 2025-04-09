@@ -171,3 +171,120 @@ CIR pulled on 5th April
 60Days	4th April to 5th Feb	3
 90Days	4th April to 5th jan	5
 180Days
+=======================================================================
+public FintechNonCreditCapsSummary getTotal(ResponseInfo reponseInfo, INProfileRequest inProfileRequest) {
+    FintechNonCreditCapsSummary fintechNonCreditCapsSummary = new FintechNonCreditCapsSummary();
+    
+    if (reponseInfo.getConsumerResponse() == null || reponseInfo.getConsumerResponse().getNGINQUIRY() == null) {
+        return fintechNonCreditCapsSummary;
+    }
+    
+    String bMId = reponseInfo.getConsumerResponse().getNGINQUIRY().getInqBureauMemberId();
+    String enqReason = inProfileRequest.getApplication().getEnquiryReason();
+    String userKey = bMId + "_" + enqReason;
+    
+    // Get report pull date (default to current date if not available)
+    LocalDate reportDate = inProfileRequest.getReportDate() != null ? 
+        LocalDate.parse(inProfileRequest.getReportDate(), DateTimeFormatter.ofPattern("ddMMyyyy")) :
+        LocalDate.now();
+    
+    Map<String, String> userMapping = readFile(userKey);
+    if (reponseInfo.getConsumerResponse().getENQRHIST() != null) {
+        Map<String, FintechCapsDaysSummary> rankSummaries = processEnquiriesByRank(
+            reponseInfo.getConsumerResponse().getENQRHIST(), 
+            userMapping,
+            reportDate
+        );
+        
+        fintechNonCreditCapsSummary.setRankA(rankSummaries.getOrDefault("A", new FintechCapsDaysSummary()));
+        fintechNonCreditCapsSummary.setRankB(rankSummaries.getOrDefault("B", new FintechCapsDaysSummary()));
+        fintechNonCreditCapsSummary.setRankC(rankSummaries.getOrDefault("C", new FintechCapsDaysSummary()));
+        fintechNonCreditCapsSummary.setRankD(rankSummaries.getOrDefault("D", new FintechCapsDaysSummary()));
+    }
+    
+    return fintechNonCreditCapsSummary;
+}
+
+public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
+    List<Enqrhist> enquiries, 
+    Map<String, String> userMapping,
+    LocalDate reportDate) {
+    
+    Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+    rankSummaries.put("A", new FintechCapsDaysSummary());
+    rankSummaries.put("B", new FintechCapsDaysSummary());
+    rankSummaries.put("C", new FintechCapsDaysSummary());
+    rankSummaries.put("D", new FintechCapsDaysSummary());
+    
+    // Group enquiries by rank and fintechId (without dates for deduplication)
+    Map<String, Set<String>> fintechIdsByRank = new HashMap<>();
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+    
+    for (Enqrhist enquiry : enquiries) {
+        if (enquiry != null && enquiry.getEnquiryPurposeCd() != null &&
+            enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+            
+            String fintechId = enquiry.getSegmentCode();
+            String dateStr = enquiry.getEnquiryDate();
+            
+            try {
+                LocalDate enquiryDate = LocalDate.parse(dateStr, dateFormatter);
+                
+                // Default to "D" if not found in mapping
+                String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+                
+                // Initialize if not present
+                fintechIdsByRank.putIfAbsent(rank, new HashSet<>());
+                
+                // Check if this enquiry falls within any period
+                if (!enquiryDate.isAfter(reportDate)) { // Only consider enquiries on or before report date
+                    long daysBetween = ChronoUnit.DAYS.between(enquiryDate, reportDate);
+                    
+                    if (daysBetween <= 180) {
+                        fintechIdsByRank.get(rank).add(fintechId);
+                    }
+                }
+            } catch (DateTimeParseException e) {
+                continue; // Skip invalid dates
+            }
+        }
+    }
+    
+    // Now calculate counts for each period
+    for (Enqrhist enquiry : enquiries) {
+        if (enquiry != null && enquiry.getEnquiryPurposeCd() != null &&
+            enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+            
+            String fintechId = enquiry.getSegmentCode();
+            String dateStr = enquiry.getEnquiryDate();
+            
+            try {
+                LocalDate enquiryDate = LocalDate.parse(dateStr, dateFormatter);
+                if (enquiryDate.isAfter(reportDate)) continue;
+                
+                String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+                FintechCapsDaysSummary summary = rankSummaries.get(rank);
+                if (summary == null) continue;
+                
+                long daysBetween = ChronoUnit.DAYS.between(enquiryDate, reportDate);
+                
+                if (daysBetween <= 30) {
+                    summary.setcAPSLast30Days(fintechIdsByRank.get(rank).size());
+                }
+                if (daysBetween <= 60) {
+                    summary.setcAPSLast60Days(fintechIdsByRank.get(rank).size());
+                }
+                if (daysBetween <= 90) {
+                    summary.setcAPSLast90Days(fintechIdsByRank.get(rank).size());
+                }
+                if (daysBetween <= 180) {
+                    summary.setcAPSLast180Days(fintechIdsByRank.get(rank).size());
+                }
+            } catch (DateTimeParseException e) {
+                continue;
+            }
+        }
+    }
+    
+    return rankSummaries;
+}

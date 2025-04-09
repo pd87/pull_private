@@ -1,0 +1,160 @@
+public FintechNonCreditCapsSummary getTotal(ResponseInfo reponseInfo, INProfileRequest inProfileRequest) {
+    FintechNonCreditCapsSummary fintechNonCreditCapsSummary = new FintechNonCreditCapsSummary();
+    
+    if (reponseInfo.getConsumerResponse() == null || reponseInfo.getConsumerResponse().getNGINQUIRY() == null) {
+        return fintechNonCreditCapsSummary;
+    }
+    
+    String bMId = reponseInfo.getConsumerResponse().getNGINQUIRY().getInqBureauMemberId();
+    String enqReason = inProfileRequest.getApplication().getEnquiryReason();
+    String userKey = bMId + "_" + enqReason;
+    
+    Map<String, String> userMapping = readFile(userKey);
+    if (userMapping != null && reponseInfo.getConsumerResponse().getENQRHIST() != null) {
+        Map<String, FintechCapsDaysSummary> rankSummaries = processEnquiriesByRank(
+            reponseInfo.getConsumerResponse().getENQRHIST(), 
+            userMapping
+        );
+        
+        // Set the summaries for each rank
+        fintechNonCreditCapsSummary.setRankA(rankSummaries.getOrDefault("A", new FintechCapsDaysSummary()));
+        fintechNonCreditCapsSummary.setRankB(rankSummaries.getOrDefault("B", new FintechCapsDaysSummary()));
+        fintechNonCreditCapsSummary.setRankC(rankSummaries.getOrDefault("C", new FintechCapsDaysSummary()));
+        fintechNonCreditCapsSummary.setRankD(rankSummaries.getOrDefault("D", new FintechCapsDaysSummary()));
+    }
+    
+    return fintechNonCreditCapsSummary;
+}
+
+public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(List<Enqrhist> enquiries, Map<String, String> userMapping) {
+    // Initialize a map to hold summaries for each rank
+    Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+    rankSummaries.put("A", new FintechCapsDaysSummary());
+    rankSummaries.put("B", new FintechCapsDaysSummary());
+    rankSummaries.put("C", new FintechCapsDaysSummary());
+    rankSummaries.put("D", new FintechCapsDaysSummary());
+    
+    // Group enquiries by rank and date
+    Map<String, Map<String, Set<String>>> enquiriesByRank = new HashMap<>();
+    
+    for (Enqrhist enquiry : enquiries) {
+        if (enquiry != null && enquiry.getEnquiryPurposeCd() != null &&
+            enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+            
+            String fintechId = enquiry.getSegmentCode();
+            String date = enquiry.getEnquiryDate();
+            String rank = userMapping.get(fintechId);
+            
+            if (rank != null) {
+                enquiriesByRank.putIfAbsent(rank, new HashMap<>());
+                enquiriesByRank.get(rank).putIfAbsent(fintechId, new HashSet<>());
+                enquiriesByRank.get(rank).get(fintechId).add(date);
+            }
+        }
+    }
+    
+    // Calculate counts for each rank
+    for (Map.Entry<String, Map<String, Set<String>>> entry : enquiriesByRank.entrySet()) {
+        String rank = entry.getKey();
+        Map<String, Set<String>> fintechEnquiries = entry.getValue();
+        
+        FintechCapsDaysSummary summary = rankSummaries.get(rank);
+        if (summary != null) {
+            summary.setcAPSLast30Days(countEnquiries(fintechEnquiries, 30));
+            summary.setcAPSLast60Days(countEnquiries(fintechEnquiries, 60));
+            summary.setcAPSLast90Days(countEnquiries(fintechEnquiries, 90));
+            summary.setcAPSLast180Days(countEnquiries(fintechEnquiries, 180));
+        }
+    }
+    
+    return rankSummaries;
+}
+
+public Map<String, String> readFile(String userKey) {
+    ObjectMapper objectMapper = new ObjectMapper();
+    try {
+        Map<String, Map<String, String>> outerMap = objectMapper.readValue(
+            new File(System.getenv("EXP_ROOT") + "/ccm/resources/fintech/fintechUserMapping.json"), 
+            new TypeReference<Map<String, Map<String, String>>>() {}
+        );
+        return outerMap.get(userKey);
+    } catch (IOException e) {
+        e.printStackTrace();
+        return null;
+    }
+}
+
+// Assuming countEnquiries remains the same as before, but here's the implementation for completeness
+private static int countEnquiries(Map<String, Set<String>> fintechEnquiries, int days) {
+    LocalDate cutoffDate = LocalDate.now().minusDays(days);
+    int count = 0;
+    
+    for (Set<String> dates : fintechEnquiries.values()) {
+        boolean hasEnquiryInPeriod = false;
+        for (String dateStr : dates) {
+            try {
+                LocalDate enquiryDate = LocalDate.parse(dateStr, DateTimeFormatter.BASIC_ISO_DATE);
+                if (!enquiryDate.isBefore(cutoffDate)) {
+                    hasEnquiryInPeriod = true;
+                    break; // Count at most one enquiry per fintechId in the period
+                }
+            } catch (DateTimeParseException e) {
+                // Handle invalid date format
+                continue;
+            }
+        }
+        if (hasEnquiryInPeriod) {
+            count++;
+        }
+    }
+    
+    return count;
+}
+
+==================================================================================================
+
+public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(List<Enqrhist> enquiries, Map<String, String> userMapping) {
+    // Initialize a map to hold summaries for each rank
+    Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+    rankSummaries.put("A", new FintechCapsDaysSummary());
+    rankSummaries.put("B", new FintechCapsDaysSummary());
+    rankSummaries.put("C", new FintechCapsDaysSummary());
+    rankSummaries.put("D", new FintechCapsDaysSummary());
+    
+    // Group enquiries by rank and date
+    Map<String, Map<String, Set<String>>> enquiriesByRank = new HashMap<>();
+    
+    for (Enqrhist enquiry : enquiries) {
+        if (enquiry != null && enquiry.getEnquiryPurposeCd() != null &&
+            enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+            
+            String fintechId = enquiry.getSegmentCode();
+            String date = enquiry.getEnquiryDate();
+            
+            // Default to "D" if not found in mapping
+            String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+            
+            enquiriesByRank.putIfAbsent(rank, new HashMap<>());
+            enquiriesByRank.get(rank).putIfAbsent(fintechId, new HashSet<>());
+            enquiriesByRank.get(rank).get(fintechId).add(date);
+        }
+    }
+    
+    // Calculate counts for each rank
+    for (Map.Entry<String, Map<String, Set<String>>> entry : enquiriesByRank.entrySet()) {
+        String rank = entry.getKey();
+        Map<String, Set<String>> fintechEnquiries = entry.getValue();
+        
+        FintechCapsDaysSummary summary = rankSummaries.get(rank);
+        if (summary != null) {
+            summary.setcAPSLast30Days(countEnquiries(fintechEnquiries, 30));
+            summary.setcAPSLast60Days(countEnquiries(fintechEnquiries, 60));
+            summary.setcAPSLast90Days(countEnquiries(fintechEnquiries, 90));
+            summary.setcAPSLast180Days(countEnquiries(fintechEnquiries, 180));
+        }
+    }
+    
+    return rankSummaries;
+}
+
+=======================================================================

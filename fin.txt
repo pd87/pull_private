@@ -1,0 +1,78 @@
+public FintechNonCreditCapsSummary getTotal(ResponseInfo reponseInfo, INProfileRequest inProfileRequest) {
+
+ FintechNonCreditCapsSummary fintechNonCreditCapsSummary = new FintechNonCreditCapsSummary();
+ String bMId = reponseInfo.getConsumerResponse().getNGINQUIRY().getInqBureauMemberId();
+ String enqReason = inProfileRequest.getApplication().getEnquiryReason();
+ String userKey = bMId+"_"+enqReason;
+ Map userMapping = readFile(userKey);
+ if (userMapping != null && reponseInfo.getConsumerResponse().getENQRHIST() != null) {
+
+ FintechCapsDaysSummary summary = processEnquiries(reponseInfo.getConsumerResponse().getENQRHIST(), userMapping);
+ fintechNonCreditCapsSummary.setRankA(summary);
+ }
+
+ return fintechNonCreditCapsSummary;
+
+ }
+
+public static FintechCapsDaysSummary processEnquiries(List enquiries, Map userMapping) {
+ FintechCapsDaysSummary summary = new FintechCapsDaysSummary();
+ Map> fintechEnquiries = new HashMap<>();
+
+ for (Enqrhist enquiry : enquiries) {
+ if(enquiry != null && enquiry.getEnquiryPurposeCd() !=null &&
+ enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+
+ String fintechId = enquiry.getSegmentCode();
+ String date = enquiry.getEnquiryDate();
+
+ fintechEnquiries.putIfAbsent(fintechId, new HashSet<>());
+ fintechEnquiries.get(fintechId).add(date);
+ }
+ }
+
+ summary.setcAPSLast30Days(countEnquiries(fintechEnquiries, 30));
+ summary.setcAPSLast60Days(countEnquiries(fintechEnquiries, 60));
+ summary.setcAPSLast90Days(countEnquiries(fintechEnquiries, 90));
+ summary.setcAPSLast180Days(countEnquiries(fintechEnquiries, 180));
+
+ return summary;
+ }
+
+public Map readFile(String userKey) {
+ ObjectMapper objectMapper = new ObjectMapper();
+ try {
+ Map> outerMap = objectMapper.readValue(new File(System.getenv("EXP_ROOT")+"/ccm/resources/fintech/fintechUserMapping.json"), Map.class);
+ Map map = outerMap.get(userKey);
+ return map;
+ } catch (IOException e) {
+ e.printStackTrace();
+ return null;
+ }
+ }
+this is my sample code
+
+i want to process all ENQRHIST and get 
+RankA30days RankA60days RankA90days RankA180days
+
+for rank A,B,C,D
+
+and rank specified in json file 
+
+{
+ "337_3": {
+ "bureau_report_v3__indwealth_onde": "A",
+ "bureau_report_v3__dream_plug_reg": "B",
+ "bureau_report_v3__pb_ondemand_fm": "C"
+ }
+ "3427_5": {
+ "bureau_report_v3__indwealth_onde": "A",
+ "bureau_report_v3__dream_plug_reg": "B",
+ "bureau_report_v3__pb_ondemand_fm": "C"
+ }
+}
+
+in my ENQHIST i am getting userid and i want to find that user in json file to identify his rank
+
+and my dedup logic for days counting will be
+After counting enquiries daywise for last 30/60/90/180 days, please dedupe the enquiry number and count it as only one if the same user has more than one enquiries for that month.

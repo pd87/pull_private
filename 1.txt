@@ -216,74 +216,85 @@ public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
     rankSummaries.put("C", new FintechCapsDaysSummary());
     rankSummaries.put("D", new FintechCapsDaysSummary());
     
-    // Group enquiries by rank and fintechId (without dates for deduplication)
-    Map<String, Set<String>> fintechIdsByRank = new HashMap<>();
     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
     
+    // First organize enquiries by rank and fintechId
+    Map<String, Map<String, Set<YearMonth>>> enquiriesByRank = new HashMap<>();
+    
     for (Enqrhist enquiry : enquiries) {
-        if (enquiry != null && enquiry.getEnquiryPurposeCd() != null &&
-            enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
-            
+        if (enquiry == null || enquiry.getEnquiryPurposeCd() == null || 
+            !enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+            continue;
+        }
+        
+        try {
             String fintechId = enquiry.getSegmentCode();
-            String dateStr = enquiry.getEnquiryDate();
+            LocalDate enquiryDate = LocalDate.parse(enquiry.getEnquiryDate(), dateFormatter);
+            YearMonth enquiryMonth = YearMonth.from(enquiryDate);
             
-            try {
-                LocalDate enquiryDate = LocalDate.parse(dateStr, dateFormatter);
-                
-                // Default to "D" if not found in mapping
-                String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
-                
-                // Initialize if not present
-                fintechIdsByRank.putIfAbsent(rank, new HashSet<>());
-                
-                // Check if this enquiry falls within any period
-                if (!enquiryDate.isAfter(reportDate)) { // Only consider enquiries on or before report date
-                    long daysBetween = ChronoUnit.DAYS.between(enquiryDate, reportDate);
-                    
-                    if (daysBetween <= 180) {
-                        fintechIdsByRank.get(rank).add(fintechId);
-                    }
-                }
-            } catch (DateTimeParseException e) {
-                continue; // Skip invalid dates
-            }
+            if (enquiryDate.isAfter(reportDate)) continue;
+            
+            String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+            
+            enquiriesByRank.putIfAbsent(rank, new HashMap<>());
+            enquiriesByRank.get(rank).putIfAbsent(fintechId, new HashSet<>());
+            
+            // Add the month of this enquiry
+            enquiriesByRank.get(rank).get(fintechId).add(enquiryMonth);
+        } catch (DateTimeParseException e) {
+            continue;
         }
     }
     
-    // Now calculate counts for each period
-    for (Enqrhist enquiry : enquiries) {
-        if (enquiry != null && enquiry.getEnquiryPurposeCd() != null &&
-            enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+    // Calculate counts for each period
+    for (Map.Entry<String, Map<String, Set<YearMonth>>> rankEntry : enquiriesByRank.entrySet()) {
+        String rank = rankEntry.getKey();
+        Map<String, Set<YearMonth>> fintechMonths = rankEntry.getValue();
+        
+        FintechCapsDaysSummary summary = rankSummaries.get(rank);
+        if (summary == null) continue;
+        
+        // For each fintech, count how many distinct months they have enquiries in each period
+        int count30 = 0;
+        int count60 = 0;
+        int count90 = 0;
+        int count180 = 0;
+        
+        YearMonth reportMonth = YearMonth.from(reportDate);
+        
+        for (Set<YearMonth> months : fintechMonths.values()) {
+            boolean in30 = false;
+            boolean in60 = false;
+            boolean in90 = false;
+            boolean in180 = false;
             
-            String fintechId = enquiry.getSegmentCode();
-            String dateStr = enquiry.getEnquiryDate();
-            
-            try {
-                LocalDate enquiryDate = LocalDate.parse(dateStr, dateFormatter);
-                if (enquiryDate.isAfter(reportDate)) continue;
+            for (YearMonth month : months) {
+                long monthsBetween = ChronoUnit.MONTHS.between(month, reportMonth);
                 
-                String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
-                FintechCapsDaysSummary summary = rankSummaries.get(rank);
-                if (summary == null) continue;
-                
-                long daysBetween = ChronoUnit.DAYS.between(enquiryDate, reportDate);
-                
-                if (daysBetween <= 30) {
-                    summary.setcAPSLast30Days(fintechIdsByRank.get(rank).size());
+                if (monthsBetween <= 1) { // Within 30 days (~1 month)
+                    in30 = true;
                 }
-                if (daysBetween <= 60) {
-                    summary.setcAPSLast60Days(fintechIdsByRank.get(rank).size());
+                if (monthsBetween <= 2) { // Within 60 days (~2 months)
+                    in60 = true;
                 }
-                if (daysBetween <= 90) {
-                    summary.setcAPSLast90Days(fintechIdsByRank.get(rank).size());
+                if (monthsBetween <= 3) { // Within 90 days (~3 months)
+                    in90 = true;
                 }
-                if (daysBetween <= 180) {
-                    summary.setcAPSLast180Days(fintechIdsByRank.get(rank).size());
+                if (monthsBetween <= 6) { // Within 180 days (~6 months)
+                    in180 = true;
                 }
-            } catch (DateTimeParseException e) {
-                continue;
             }
+            
+            if (in30) count30++;
+            if (in60) count60++;
+            if (in90) count90++;
+            if (in180) count180++;
         }
+        
+        summary.setcAPSLast30Days(count30);
+        summary.setcAPSLast60Days(count60);
+        summary.setcAPSLast90Days(count90);
+        summary.setcAPSLast180Days(count180);
     }
     
     return rankSummaries;

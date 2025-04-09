@@ -158,3 +158,16 @@ public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(List<En
 }
 
 =======================================================================
+
+Fintech Name	Jan	Feb	Mar	Apr
+Paytm	1,15,20,25	-	-	-
+Phonepe	 	4,10	-	-
+Cred	-	-	25	1
+ 
+ 
+ 
+CIR pulled on 5th April	 	 
+30Days	4th April to 5th March	2
+60Days	4th April to 5th Feb	3
+90Days	4th April to 5th jan	5
+180Days

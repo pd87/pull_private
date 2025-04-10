@@ -1,0 +1,69 @@
+public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
+    List<Enqrhist> enquiries, 
+    Map<String, String> userMapping,
+    LocalDate reportDate) {
+
+    Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+    rankSummaries.put("A", new FintechCapsDaysSummary());
+    rankSummaries.put("B", new FintechCapsDaysSummary());
+    rankSummaries.put("C", new FintechCapsDaysSummary());
+    rankSummaries.put("D", new FintechCapsDaysSummary());
+
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+
+    // Structure: Rank -> Fintech ID -> Unique Enquiry Dates
+    Map<String, Map<String, Set<LocalDate>>> rankFintechDatesMap = new HashMap<>();
+
+    for (Enqrhist enquiry : enquiries) {
+        if (enquiry == null || enquiry.getEnquiryPurposeCd() == null || 
+            !enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+            continue;
+        }
+
+        try {
+            String fintechId = enquiry.getSegmentCode();
+            LocalDate enquiryDate = LocalDate.parse(enquiry.getEnquiryDate(), dateFormatter);
+            if (enquiryDate.isAfter(reportDate)) continue;
+
+            String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+
+            // Initialize data structure
+            rankFintechDatesMap.putIfAbsent(rank, new HashMap<>());
+            rankFintechDatesMap.get(rank).putIfAbsent(fintechId, new HashSet<>());
+
+            // Add the enquiry date (Set deduplicates same-day entries)
+            rankFintechDatesMap.get(rank).get(fintechId).add(enquiryDate);
+        } catch (DateTimeParseException e) {
+            continue;
+        }
+    }
+
+    // Calculate counts for each period
+    for (Map.Entry<String, Map<String, Set<LocalDate>>> rankEntry : rankFintechDatesMap.entrySet()) {
+        String rank = rankEntry.getKey();
+        Map<String, Set<LocalDate>> fintechDates = rankEntry.getValue();
+
+        int count30 = 0;
+        int count60 = 0;
+        int count90 = 0;
+        int count180 = 0;
+
+        for (Set<LocalDate> dates : fintechDates.values()) {
+            for (LocalDate date : dates) {
+                long daysBetween = ChronoUnit.DAYS.between(date, reportDate);
+                if (daysBetween <= 30) count30++;
+                if (daysBetween <= 60) count60++;
+                if (daysBetween <= 90) count90++;
+                if (daysBetween <= 180) count180++;
+            }
+        }
+
+        FintechCapsDaysSummary summary = rankSummaries.get(rank);
+        summary.setcAPSLast30Days(count30);
+        summary.setcAPSLast60Days(count60);
+        summary.setcAPSLast90Days(count90);
+        summary.setcAPSLast180Days(count180);
+    }
+
+    return rankSummaries;
+}

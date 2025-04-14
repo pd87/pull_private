@@ -156,42 +156,51 @@ public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
     LocalDate reportDate) {
 
     Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
-    // Initialize ranks A-D...
+    rankSummaries.put("A", new FintechCapsDaysSummary());
+    rankSummaries.put("B", new FintechCapsDaysSummary());
+    rankSummaries.put("C", new FintechCapsDaysSummary());
+    rankSummaries.put("D", new FintechCapsDaysSummary());
 
     DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
 
-    // Structure: Rank -> Fintech ID -> (YearMonth -> Earliest enquiry date in that month)
-    Map<String, Map<String, Map<YearMonth, LocalDate>>> rankFintechMonthDates = new HashMap<>();
+    // Calculate strict cutoffs (day-level precision)
+    LocalDate cutoff30Days = reportDate.minusDays(30);
+    LocalDate cutoff60Days = reportDate.minusDays(60);
+    LocalDate cutoff90Days = reportDate.minusDays(90);
+    LocalDate cutoff180Days = reportDate.minusDays(180);
 
-    // Step 1: Group by Rank -> Fintech -> YearMonth (keep earliest date per month)
+    // Structure: Rank -> Fintech ID -> Unique YearMonths (for deduplication)
+    Map<String, Map<String, Set<YearMonth>>> rankFintechMonths = new HashMap<>();
+
     for (Enqrhist enquiry : enquiries) {
-        if (enquiry == null || !SOFT_PULL_PURPOSE_CODE.equalsIgnoreCase(enquiry.getEnquiryPurposeCd().trim())) {
+        if (enquiry == null || enquiry.getEnquiryPurposeCd() == null || 
+            !enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
             continue;
         }
 
         try {
             String fintechId = enquiry.getSegmentCode();
             LocalDate enquiryDate = LocalDate.parse(enquiry.getEnquiryDate(), dateFormatter);
-            YearMonth enquiryMonth = YearMonth.from(enquiryDate);
+            YearMonth enquiryYearMonth = YearMonth.from(enquiryDate);
+
+            if (enquiryDate.isAfter(reportDate)) continue;
+
             String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
 
-            rankFintechMonthDates.putIfAbsent(rank, new HashMap<>());
-            rankFintechMonthDates.get(rank).putIfAbsent(fintechId, new HashMap<>());
+            // Initialize data structures
+            rankFintechMonths.putIfAbsent(rank, new HashMap<>());
+            rankFintechMonths.get(rank).putIfAbsent(fintechId, new HashSet<>());
 
-            // Keep the earliest date for each month (to check day-level inclusion later)
-            rankFintechMonthDates.get(rank).get(fintechId).merge(
-                enquiryMonth, 
-                enquiryDate, 
-                (existingDate, newDate) -> newDate.isBefore(existingDate) ? newDate : existingDate
-            );
+            // Add YearMonth (deduplicates same month)
+            rankFintechMonths.get(rank).get(fintechId).add(enquiryYearMonth);
         } catch (DateTimeParseException e) {
             continue;
         }
     }
 
-    // Step 2: Calculate counts for each period
-    for (String rank : rankFintechMonthDates.keySet()) {
-        Map<String, Map<YearMonth, LocalDate>> fintechMonthDates = rankFintechMonthDates.get(rank);
+    // Calculate counts for each period
+    for (String rank : rankFintechMonths.keySet()) {
+        Map<String, Set<YearMonth>> fintechMonths = rankFintechMonths.get(rank);
         FintechCapsDaysSummary summary = rankSummaries.get(rank);
 
         int count30 = 0;
@@ -199,15 +208,15 @@ public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
         int count90 = 0;
         int count180 = 0;
 
-        for (Map<YearMonth, LocalDate> monthDates : fintechMonthDates.values()) {
-            for (Map.Entry<YearMonth, LocalDate> entry : monthDates.entrySet()) {
-                LocalDate earliestDateInMonth = entry.getValue();
-                long daysBetween = ChronoUnit.DAYS.between(earliestDateInMonth, reportDate);
+        for (Set<YearMonth> yearMonths : fintechMonths.values()) {
+            for (YearMonth yearMonth : yearMonths) {
+                // Get the LAST day of the month to check cutoff (worst-case scenario)
+                LocalDate lastDayOfMonth = yearMonth.atEndOfMonth();
 
-                if (daysBetween <= 30) count30++;
-                if (daysBetween <= 60) count60++;
-                if (daysBetween <= 90) count90++;
-                if (daysBetween <= 180) count180++;
+                if (!lastDayOfMonth.isBefore(cutoff30Days)) count30++;
+                if (!lastDayOfMonth.isBefore(cutoff60Days)) count60++;
+                if (!lastDayOfMonth.isBefore(cutoff90Days)) count90++;
+                if (!lastDayOfMonth.isBefore(cutoff180Days)) count180++;
             }
         }
 

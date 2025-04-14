@@ -1,0 +1,85 @@
+    public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
+            List<Enqrhist> enquiries,
+            Map<String, String> userMapping,
+            LocalDate reportDate) {
+
+        // Initialize result structure for all ranks
+        Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+        Arrays.asList("A", "B", "C", "D").forEach(rank -> 
+            rankSummaries.put(rank, new FintechCapsDaysSummary()));
+
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+
+        // Calculate strict day-based cutoffs
+        LocalDate cutoff30Days = reportDate.minusDays(30);
+        LocalDate cutoff60Days = reportDate.minusDays(60);
+        LocalDate cutoff90Days = reportDate.minusDays(90);
+        LocalDate cutoff180Days = reportDate.minusDays(180);
+
+        // Structure: Rank -> Fintech ID -> Period -> Valid YearMonths
+        Map<String, Map<String, Map<String, Set<YearMonth>>>> periodData = new HashMap<>();
+
+        // Process each enquiry
+        for (Enqrhist enquiry : enquiries) {
+            if (enquiry == null || enquiry.getEnquiryPurposeCd() == null ||
+                !enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE)) {
+                continue;
+            }
+
+            try {
+                String fintechId = enquiry.getSegmentCode();
+                LocalDate enquiryDate = LocalDate.parse(enquiry.getEnquiryDate(), dateFormatter);
+                YearMonth enquiryYearMonth = YearMonth.from(enquiryDate);
+
+                if (enquiryDate.isAfter(reportDate)) continue;
+
+                String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+
+                // Initialize data structures
+                periodData.putIfAbsent(rank, new HashMap<>());
+                periodData.get(rank).putIfAbsent(fintechId, new HashMap<>());
+                
+                Map<String, Set<YearMonth>> fintechPeriods = periodData.get(rank).get(fintechId);
+                
+                // Check each period and add to appropriate sets
+                if (!enquiryDate.isBefore(cutoff30Days)) {
+                    fintechPeriods.computeIfAbsent("30Days", k -> new HashSet<>()).add(enquiryYearMonth);
+                }
+                if (!enquiryDate.isBefore(cutoff60Days)) {
+                    fintechPeriods.computeIfAbsent("60Days", k -> new HashSet<>()).add(enquiryYearMonth);
+                }
+                if (!enquiryDate.isBefore(cutoff90Days)) {
+                    fintechPeriods.computeIfAbsent("90Days", k -> new HashSet<>()).add(enquiryYearMonth);
+                }
+                if (!enquiryDate.isBefore(cutoff180Days)) {
+                    fintechPeriods.computeIfAbsent("180Days", k -> new HashSet<>()).add(enquiryYearMonth);
+                }
+
+            } catch (DateTimeParseException e) {
+                continue; // Skip invalid dates
+            }
+        }
+
+        // Calculate final counts
+        for (String rank : periodData.keySet()) {
+            FintechCapsDaysSummary summary = rankSummaries.get(rank);
+            
+            summary.setcAPSLast30Days(countValidMonths(periodData, rank, "30Days"));
+            summary.setcAPSLast60Days(countValidMonths(periodData, rank, "60Days"));
+            summary.setcAPSLast90Days(countValidMonths(periodData, rank, "90Days"));
+            summary.setcAPSLast180Days(countValidMonths(periodData, rank, "180Days"));
+        }
+
+        return rankSummaries;
+    }
+
+    private static int countValidMonths(
+            Map<String, Map<String, Map<String, Set<YearMonth>>>> periodData,
+            String rank, String period) {
+        
+        return periodData.getOrDefault(rank, Collections.emptyMap())
+                .values().stream()
+                .map(fintechPeriods -> fintechPeriods.getOrDefault(period, Collections.emptySet()).size())
+                .mapToInt(Integer::intValue)
+                .sum();
+    }

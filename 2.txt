@@ -149,3 +149,73 @@ public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
 
     return rankSummaries;
 }
+----------------------------------------------
+public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
+    List<Enqrhist> enquiries, 
+    Map<String, String> userMapping,
+    LocalDate reportDate) {
+
+    Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+    // Initialize ranks A-D...
+
+    DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+
+    // Structure: Rank -> Fintech ID -> (YearMonth -> Earliest enquiry date in that month)
+    Map<String, Map<String, Map<YearMonth, LocalDate>>> rankFintechMonthDates = new HashMap<>();
+
+    // Step 1: Group by Rank -> Fintech -> YearMonth (keep earliest date per month)
+    for (Enqrhist enquiry : enquiries) {
+        if (enquiry == null || !SOFT_PULL_PURPOSE_CODE.equalsIgnoreCase(enquiry.getEnquiryPurposeCd().trim())) {
+            continue;
+        }
+
+        try {
+            String fintechId = enquiry.getSegmentCode();
+            LocalDate enquiryDate = LocalDate.parse(enquiry.getEnquiryDate(), dateFormatter);
+            YearMonth enquiryMonth = YearMonth.from(enquiryDate);
+            String rank = userMapping != null ? userMapping.getOrDefault(fintechId, "D") : "D";
+
+            rankFintechMonthDates.putIfAbsent(rank, new HashMap<>());
+            rankFintechMonthDates.get(rank).putIfAbsent(fintechId, new HashMap<>());
+
+            // Keep the earliest date for each month (to check day-level inclusion later)
+            rankFintechMonthDates.get(rank).get(fintechId).merge(
+                enquiryMonth, 
+                enquiryDate, 
+                (existingDate, newDate) -> newDate.isBefore(existingDate) ? newDate : existingDate
+            );
+        } catch (DateTimeParseException e) {
+            continue;
+        }
+    }
+
+    // Step 2: Calculate counts for each period
+    for (String rank : rankFintechMonthDates.keySet()) {
+        Map<String, Map<YearMonth, LocalDate>> fintechMonthDates = rankFintechMonthDates.get(rank);
+        FintechCapsDaysSummary summary = rankSummaries.get(rank);
+
+        int count30 = 0;
+        int count60 = 0;
+        int count90 = 0;
+        int count180 = 0;
+
+        for (Map<YearMonth, LocalDate> monthDates : fintechMonthDates.values()) {
+            for (Map.Entry<YearMonth, LocalDate> entry : monthDates.entrySet()) {
+                LocalDate earliestDateInMonth = entry.getValue();
+                long daysBetween = ChronoUnit.DAYS.between(earliestDateInMonth, reportDate);
+
+                if (daysBetween <= 30) count30++;
+                if (daysBetween <= 60) count60++;
+                if (daysBetween <= 90) count90++;
+                if (daysBetween <= 180) count180++;
+            }
+        }
+
+        summary.setcAPSLast30Days(count30);
+        summary.setcAPSLast60Days(count60);
+        summary.setcAPSLast90Days(count90);
+        summary.setcAPSLast180Days(count180);
+    }
+
+    return rankSummaries;
+}

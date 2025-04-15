@@ -1,0 +1,207 @@
+package com.experian.ngtocbv2.output.mapper;
+
+import com.experian.inprofile.nextgen.pojo.output.Enqrhist;
+import comperian.inprofile.nextgen.pojo.output.ResponseInfo;
+import com.experian.inprofile.pojo.input.INProfileRequest;
+import com.experian.inprofile.pojo.output.FintechCapsDaysSummary;
+import com.experian.inprofile.pojo.output.FintechNonCreditCapsSummary;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import java.io.File;
+import java.io.IOException;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+
+public class FintechCapsMapper {
+    private static final String SOFT_PULL_PURPOSE_CODE = "19";
+    private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("ddMMyyyy");
+    private static final List<String> RANKS = Arrays.asList("A", "B", "C", "D");
+    
+    // Cache for the mapping file
+    private static final Map<String, Map<String, String>> USER_MAPPING_CACHE = new ConcurrentHashMap<>();
+    private static final Object CACHE_LOCK = new Object();
+    
+    public FintechNonCreditCapsSummary getFintechRanks(ResponseInfo responseInfo, INProfileRequest inProfileRequest) {
+        Objects.requireNonNull(responseInfo, "ResponseInfo cannot be null");
+        Objects.requireNonNull(inProfileRequest, "INProfileRequest cannot be null");
+        
+        FintechNonCreditCapsSummary result = new FintechNonCreditCapsSummary();
+        
+        try {
+            if (responseInfo.getConsumerResponse() == null || 
+                responseInfo.getConsumerResponse().getNGINQUIRY() == null) {
+                return result;
+            }
+
+            String bMId = Optional.ofNullable(responseInfo.getConsumerResponse().getNGINQUIRY())
+                .map(nginquiry -> nginquiry.getInqBureauMemberId())
+                .orElse("");
+                
+            String enqReason = Optional.ofNullable(inProfileRequest.getApplication())
+                .map(app -> app.getEnquiryReason())
+                .orElse("");
+                
+            String userKey = bMId + "_" + enqReason;
+            Map<String, String> userMapping = getUserMapping(userKey);
+            
+            Map<String, FintechCapsDaysSummary> rankSummaries = processEnquiriesByRank(
+                Optional.ofNullable(responseInfo.getConsumerResponse().getENQRHIST()).orElse(Collections.emptyList()),
+                userMapping, 
+                LocalDate.now()
+            );
+
+            result.setRankA(rankSummaries.getOrDefault("A", new FintechCapsDaysSummary()));
+            result.setRankB(rankSummaries.getOrDefault("B", new FintechCapsDaysSummary()));
+            result.setRankC(rankSummaries.getOrDefault("C", new FintechCapsDaysSummary()));
+            result.setRankD(rankSummaries.getOrDefault("D", new FintechCapsDaysSummary()));
+            
+        } catch (Exception e) {
+            // Log the error appropriately in production
+            System.err.println("Error processing fintech ranks: " + e.getMessage());
+            return new FintechNonCreditCapsSummary(); // Return empty result on error
+        }
+        
+        return result;
+    }
+
+    private Map<String, String> getUserMapping(String userKey) {
+        if (USER_MAPPING_CACHE.isEmpty()) {
+            synchronized (CACHE_LOCK) {
+                if (USER_MAPPING_CACHE.isEmpty()) {
+                    try {
+                        String filePath = System.getenv("EXP_ROOT") + "/ccm/resources/fintech/fintechUserMapping.json";
+                        Map<String, Map<String, String>> outerMap = new ObjectMapper().readValue(
+                            new File(filePath),
+                            new TypeReference<Map<String, Map<String, String>>>() {}
+                        );
+                        USER_MAPPING_CACHE.putAll(outerMap);
+                    } catch (IOException e) {
+                        System.err.println("Failed to load user mapping file: " + e.getMessage());
+                        return Collections.emptyMap();
+                    }
+                }
+            }
+        }
+        return USER_MAPPING_CACHE.getOrDefault(userKey, Collections.emptyMap());
+    }
+
+    public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
+            List<Enqrhist> enquiries,
+            Map<String, String> userMapping,
+            LocalDate reportDate) {
+        
+        Map<String, FintechCapsDaysSummary> rankSummaries = new HashMap<>();
+        RANKS.forEach(rank -> rankSummaries.put(rank, new FintechCapsDaysSummary()));
+
+        if (enquiries == null || enquiries.isEmpty()) {
+            return rankSummaries;
+        }
+
+        LocalDate cutoff30Days = reportDate.minusDays(30);
+        LocalDate cutoff60Days = reportDate.minusDays(60);
+        LocalDate cutoff90Days = reportDate.minusDays(90);
+        LocalDate cutoff180Days = reportDate.minusDays(180);
+
+        Map<String, Map<String, Map<String, Set<YearMonth>>>> periodData = new HashMap<>();
+
+        for (Enqrhist enquiry : enquiries) {
+            try {
+                if (!isValidSoftPullEnquiry(enquiry)) {
+                    continue;
+                }
+
+                String iUserID = Optional.ofNullable(enquiry.getInsertUserId()).orElse("");
+                LocalDate enquiryDate = parseEnquiryDate(enquiry.getEnquiryDate());
+                if (enquiryDate == null || enquiryDate.isAfter(reportDate)) {
+                    continue;
+                }
+
+                String rank = userMapping.getOrDefault(iUserID, "D");
+                YearMonth enquiryYearMonth = YearMonth.from(enquiryDate);
+
+                updatePeriodData(periodData, rank, iUserID, enquiryDate, enquiryYearMonth, 
+                    cutoff30Days, cutoff60Days, cutoff90Days, cutoff180Days);
+
+            } catch (Exception e) {
+                System.err.println("Error processing enquiry: " + e.getMessage());
+                continue;
+            }
+        }
+
+        calculateFinalCounts(rankSummaries, periodData);
+        return rankSummaries;
+    }
+
+    private static boolean isValidSoftPullEnquiry(Enqrhist enquiry) {
+        return enquiry != null && 
+               enquiry.getEnquiryPurposeCd() != null && 
+               enquiry.getEnquiryPurposeCd().trim().equalsIgnoreCase(SOFT_PULL_PURPOSE_CODE);
+    }
+
+    private static LocalDate parseEnquiryDate(String dateStr) {
+        try {
+            return dateStr != null ? LocalDate.parse(dateStr, DATE_FORMATTER) : null;
+        } catch (DateTimeParseException e) {
+            System.err.println("Invalid date format: " + dateStr);
+            return null;
+        }
+    }
+
+    private static void updatePeriodData(
+            Map<String, Map<String, Map<String, Set<YearMonth>>>> periodData,
+            String rank, String userId, LocalDate enquiryDate, YearMonth enquiryYearMonth,
+            LocalDate cutoff30Days, LocalDate cutoff60Days, LocalDate cutoff90Days, LocalDate cutoff180Days) {
+        
+        periodData
+            .computeIfAbsent(rank, k -> new HashMap<>())
+            .computeIfAbsent(userId, k -> new HashMap<>());
+
+        Map<String, Set<YearMonth>> enquiryPeriods = periodData.get(rank).get(userId);
+
+        if (!enquiryDate.isBefore(cutoff30Days)) {
+            enquiryPeriods.computeIfAbsent("30Days", k -> new HashSet<>()).add(enquiryYearMonth);
+        }
+        if (!enquiryDate.isBefore(cutoff60Days)) {
+            enquiryPeriods.computeIfAbsent("60Days", k -> new HashSet<>()).add(enquiryYearMonth);
+        }
+        if (!enquiryDate.isBefore(cutoff90Days)) {
+            enquiryPeriods.computeIfAbsent("90Days", k -> new HashSet<>()).add(enquiryYearMonth);
+        }
+        if (!enquiryDate.isBefore(cutoff180Days)) {
+            enquiryPeriods.computeIfAbsent("180Days", k -> new HashSet<>()).add(enquiryYearMonth);
+        }
+    }
+
+    private static void calculateFinalCounts(
+            Map<String, FintechCapsDaysSummary> rankSummaries,
+            Map<String, Map<String, Map<String, Set<YearMonth>>>> periodData) {
+        
+        for (String rank : periodData.keySet()) {
+            FintechCapsDaysSummary summary = rankSummaries.get(rank);
+            if (summary == null) continue;
+
+            summary.setcAPSLast30Days(countValidMonths(periodData, rank, "30Days"));
+            summary.setcAPSLast60Days(countValidMonths(periodData, rank, "60Days"));
+            summary.setcAPSLast90Days(countValidMonths(periodData, rank, "90Days"));
+            summary.setcAPSLast180Days(countValidMonths(periodData, rank, "180Days"));
+        }
+    }
+
+    private static int countValidMonths(
+            Map<String, Map<String, Map<String, Set<YearMonth>>>> periodData,
+            String rank, String period) {
+        
+        return Optional.ofNullable(periodData.get(rank))
+            .map(Map::values)
+            .orElse(Collections.emptyList())
+            .stream()
+            .mapToInt(enquiryPeriods -> 
+                enquiryPeriods.getOrDefault(period, Collections.emptySet()).size())
+            .sum();
+    }
+}

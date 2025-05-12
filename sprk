@@ -30,3 +30,10 @@ Caused by: java.net.SocketException: Permission denied: no further information
         at java.base/java.lang.Thread.run(Thread.java:833)
 25/05/12 08:53:21 ERROR SparkContext: Error initializing SparkContext.
 java.io.IOException: Failed to connect to W5056084.uk.experian.local/192.168.31.48:63578
+
+
+spark-submit --master local \
+--conf spark.driver.host=127.0.0.1 \
+--class com.experian.edf.oxygen.validation.app.SparkValidationApp \
+target/oxygen-validation-innersource-1.0-jar-with-dependencies.jar \
+configs/env.conf configs/validation-application.conf

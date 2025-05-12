@@ -5,4 +5,28 @@ At line:1 char:1
 + ~~~~~~~~~~~~
     + CategoryInfo          : ObjectNotFound: (spark-submit:String) [], CommandNotFoundException
     + FullyQualifiedErrorId : CommandNotFoundException
- 
+
+25/05/12 08:53:20 INFO Executor: Created or updated repl class loader org.apache.spark.util.MutableURLClassLoader@2eb60c71 for default.
+25/05/12 08:53:20 INFO Executor: Fetching spark://W5056084.uk.experian.local:63578/jars/oxygen-validation-innersource-1.0-jar-with-dependencies.jar with timestamp 1747020198005
+25/05/12 08:53:21 ERROR Utils: Aborting task
+java.io.IOException: Failed to connect to W5056084.uk.experian.local/192.168.31.48:63578
+        at org.apache.spark.network.client.TransportClientFactory.createClient(TransportClientFactory.java:294)
+
+
+Caused by: io.netty.channel.AbstractChannel$AnnotatedSocketException: Permission denied: no further information: W5056084.uk.experian.local/192.168.31.48:63578
+Caused by: java.net.SocketException: Permission denied: no further information
+        at java.base/sun.nio.ch.Net.pollConnect(Native Method)
+        at java.base/sun.nio.ch.Net.pollConnectNow(Net.java:672)
+        at java.base/sun.nio.ch.SocketChannelImpl.finishConnect(SocketChannelImpl.java:946)
+        at io.netty.channel.socket.nio.NioSocketChannel.doFinishConnect(NioSocketChannel.java:337)
+        at io.netty.channel.nio.AbstractNioChannel$AbstractNioUnsafe.finishConnect(AbstractNioChannel.java:334)
+        at io.netty.channel.nio.NioEventLoop.processSelectedKey(NioEventLoop.java:776)
+        at io.netty.channel.nio.NioEventLoop.processSelectedKeysOptimized(NioEventLoop.java:724)
+        at io.netty.channel.nio.NioEventLoop.processSelectedKeys(NioEventLoop.java:650)
+        at io.netty.channel.nio.NioEventLoop.run(NioEventLoop.java:562)
+        at io.netty.util.concurrent.SingleThreadEventExecutor$4.run(SingleThreadEventExecutor.java:997)
+        at io.netty.util.internal.ThreadExecutorMap$2.run(ThreadExecutorMap.java:74)
+        at io.netty.util.concurrent.FastThreadLocalRunnable.run(FastThreadLocalRunnable.java:30)
+        at java.base/java.lang.Thread.run(Thread.java:833)
+25/05/12 08:53:21 ERROR SparkContext: Error initializing SparkContext.
+java.io.IOException: Failed to connect to W5056084.uk.experian.local/192.168.31.48:63578

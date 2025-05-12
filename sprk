@@ -1,0 +1,8 @@
+PS J:\Spark\oxygen-validation> spark-submit --master local --class com.experian.edf.oxygen.validation.app.SparkValidationApp target/oxygen-validation-innersource-1.0-jar-with-dependencies.jar configs/env.conf configs/validation-application.conf
+spark-submit : The term 'spark-submit' is not recognized as the name of a cmdlet, function, script file, or operable program. Check the spelling of the name, or if a path was included, verify that the path is correct and try again.
+At line:1 char:1
++ spark-submit --master local --class com.experian.edf.oxygen.validatio ...
++ ~~~~~~~~~~~~
+    + CategoryInfo          : ObjectNotFound: (spark-submit:String) [], CommandNotFoundException
+    + FullyQualifiedErrorId : CommandNotFoundException
+ 

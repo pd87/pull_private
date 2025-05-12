@@ -37,3 +37,69 @@ spark-submit --master local \
 --class com.experian.edf.oxygen.validation.app.SparkValidationApp \
 target/oxygen-validation-innersource-1.0-jar-with-dependencies.jar \
 configs/env.conf configs/validation-application.conf
+
+
+/person/vle
+25/05/12 09:15:08 INFO SparkOxygenApplicationContextOxyValidator: Everything looks good for the file /Users/c88143b/Documents/innersource_validation/oxygen-validation/example//oxygen-is-app/generations/default/person/vle/archived
+25/05/12 09:15:08 INFO SparkOxygenApplicationContextOxyValidator: Lets see if you have any lookups defined...
+25/05/12 09:15:08 INFO SparkOxygenApplicationContextOxyValidator: Looking for spark configuration property 'spark.master' in system properties
+25/05/12 09:15:08 INFO SparkOxygenApplicationContextOxyValidator: Spark configuration property 'spark.master' found. Value is local
+25/05/12 09:15:08 INFO SparkOxygenApplicationContextOxyValidator: Looking for spark configuration property 'spark.app.name' in system properties
+25/05/12 09:15:08 INFO SparkOxygenApplicationContextOxyValidator: Spark configuration property 'spark.app.name' found. Value is com.experian.edf.oxygen.validation.app.SparkValidationApp
+25/05/12 09:15:08 WARN SparkOxygenAppContext: Using an existing SparkSession instance; some configuration may not take effect
+25/05/12 09:15:08 INFO MemoryStore: Block broadcast_0 stored as values in memory (estimated size 88.0 B, free 434.4 MiB)
+25/05/12 09:15:09 INFO MemoryStore: Block broadcast_0_piece0 stored as bytes in memory (estimated size 83.0 B, free 434.4 MiB)
+25/05/12 09:15:09 INFO BlockManagerInfo: Added broadcast_0_piece0 in memory on 127.0.0.1:63124 (size: 83.0 B, free: 434.4 MiB)
+25/05/12 09:15:09 INFO SparkContext: Created broadcast 0 from broadcast at SparkOxygenLookup.scala:30
+25/05/12 09:15:09 INFO MemoryStore: Block broadcast_1 stored as values in memory (estimated size 2.9 MiB, free 431.5 MiB)
+25/05/12 09:15:09 INFO MemoryStore: Block broadcast_1_piece0 stored as bytes in memory (estimated size 24.7 KiB, free 431.5 MiB)
+25/05/12 09:15:09 INFO BlockManagerInfo: Added broadcast_1_piece0 in memory on 127.0.0.1:63124 (size: 24.7 KiB, free: 434.4 MiB)
+25/05/12 09:15:09 INFO SparkContext: Created broadcast 1 from broadcast at OxygenLookupService.scala:22
+25/05/12 09:15:09 INFO SharedState: Setting hive.metastore.warehouse.dir ('null') to the value of spark.sql.warehouse.dir.
+25/05/12 09:15:09 INFO SharedState: Warehouse path is 'file:/J:/Spark/oxygen-validation/spark-warehouse'.
+25/05/12 09:15:10 INFO BlockManagerInfo: Removed broadcast_0_piece0 on 127.0.0.1:63124 in memory (size: 83.0 B, free: 434.4 MiB)
+emitStockMetrics = false
+25/05/12 09:15:16 INFO oxygenMetricsLogger: {"runId":"7330153476149280447","applicationId":"local-1747021393322","context":"highThroughput","stringValue":"start","metricType":"process","metricName":"stageStatus","metricSource":"Validation","metricSubject":"7330153476149280447","valueType":"STRING","metricKey":"status","metricDate":1747021516839,"processType":"start"}
+Exception in thread "main" java.lang.UnsatisfiedLinkError: 'boolean org.apache.hadoop.io.nativeio.NativeIO$Windows.access0(java.lang.String, int)'
+        at org.apache.hadoop.io.nativeio.NativeIO$Windows.access0(Native Method)
+        at org.apache.hadoop.io.nativeio.NativeIO$Windows.access(NativeIO.java:793)
+        at org.apache.hadoop.fs.FileUtil.canRead(FileUtil.java:1249)
+        at org.apache.hadoop.fs.FileUtil.list(FileUtil.java:1454)
+        at org.apache.hadoop.fs.RawLocalFileSystem.listStatus(RawLocalFileSystem.java:601)
+        at org.apache.hadoop.fs.FileSystem.listStatus(FileSystem.java:1972)
+        at org.apache.hadoop.fs.FileSystem.listStatus(FileSystem.java:2014)
+        at org.apache.hadoop.fs.FileSystem$4.<init>(FileSystem.java:2180)
+        at org.apache.hadoop.fs.FileSystem.listLocatedStatus(FileSystem.java:2179)
+        at org.apache.hadoop.fs.ChecksumFileSystem.listLocatedStatus(ChecksumFileSystem.java:783)
+        at org.apache.hadoop.fs.FileSystem$5.<init>(FileSystem.java:2288)
+        at org.apache.hadoop.fs.FileSystem.listFiles(FileSystem.java:2285)
+        at com.experian.edf.oxygen.utils.SparkFileUtils.listFilePathAndName(SparkFileUtils.scala:128)
+        at com.experian.edf.oxygen.utils.SparkFileUtils.$anonfun$getNewFilesToProcess$1(SparkFileUtils.scala:422)
+        at scala.collection.immutable.List.flatMap(List.scala:366)
+        at com.experian.edf.oxygen.utils.SparkFileUtils.getNewFilesToProcess(SparkFileUtils.scala:421)
+        at com.experian.edf.oxygen.validation.engines.SparkValidatorCustomMode.run(SparkValidatorCustomMode.scala:108)
+        at com.experian.edf.oxygen.validation.app.SparkValidationApp$.main(SparkValidationApp.scala:12)
+        at com.experian.edf.oxygen.validation.app.SparkValidationApp.main(SparkValidationApp.scala)
+        at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+        at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+        at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+        at java.base/java.lang.reflect.Method.invoke(Method.java:568)
+        at org.apache.spark.deploy.JavaMainApplication.start(SparkApplication.scala:52)
+        at org.apache.spark.deploy.SparkSubmit.org$apache$spark$deploy$SparkSubmit$$runMain(SparkSubmit.scala:1034)
+        at org.apache.spark.deploy.SparkSubmit.doRunMain$1(SparkSubmit.scala:199)
+        at org.apache.spark.deploy.SparkSubmit.submit(SparkSubmit.scala:222)
+        at org.apache.spark.deploy.SparkSubmit.doSubmit(SparkSubmit.scala:91)
+        at org.apache.spark.deploy.SparkSubmit$$anon$2.doSubmit(SparkSubmit.scala:1125)
+        at org.apache.spark.deploy.SparkSubmit$.main(SparkSubmit.scala:1134)
+        at org.apache.spark.deploy.SparkSubmit.main(SparkSubmit.scala)
+25/05/12 09:15:16 INFO SparkContext: Invoking stop() from shutdown hook
+25/05/12 09:15:16 INFO SparkContext: SparkContext is stopping with exitCode 0.
+25/05/12 09:15:16 INFO SparkUI: Stopped Spark web UI at http://127.0.0.1:4041
+25/05/12 09:15:16 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
+25/05/12 09:15:16 INFO MemoryStore: MemoryStore cleared
+25/05/12 09:15:16 INFO BlockManager: BlockManager stopped
+25/05/12 09:15:16 INFO BlockManagerMaster: BlockManagerMaster stopped
+25/05/12 09:15:16 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
+25/05/12 09:15:17 INFO SparkContext: Successfully stopped SparkContext
+25/05/12 09:15:17 INFO ShutdownHookManager: Shutdown hook called
+25/05/12 09:15:17 INFO ShutdownHookManager: Deleting directory C:\Users\c88143b\AppData\Local\Temp\spark-a1990fcc-eb8b-4013-b8cb-76a4611de224

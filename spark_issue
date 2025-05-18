@@ -1,0 +1,52 @@
+Connected to the target VM, address: '127.0.0.1:62893', transport: 'socket'
+Using Spark's default log4j profile: org/apache/spark/log4j2-defaults.properties
+25/05/18 11:49:31 INFO SparkContext: Running Spark version 3.5.3
+25/05/18 11:49:31 INFO SparkContext: OS info Windows 11, 10.0, amd64
+25/05/18 11:49:31 INFO SparkContext: Java version 17.0.8.1
+25/05/18 11:49:31 INFO ResourceUtils: ==============================================================
+25/05/18 11:49:31 INFO ResourceUtils: No custom resources configured for spark.driver.
+25/05/18 11:49:31 INFO ResourceUtils: ==============================================================
+25/05/18 11:49:31 INFO SparkContext: Submitted application: Innersource Spark Validation
+25/05/18 11:49:31 INFO ResourceProfile: Default ResourceProfile created, executor resources: Map(cores -> name: cores, amount: 2, script: , vendor: , memory -> name: memory, amount: 1024, script: , vendor: , offHeap -> name: offHeap, amount: 0, script: , vendor: ), task resources: Map(cpus -> name: cpus, amount: 1.0)
+25/05/18 11:49:31 INFO ResourceProfile: Limiting resource is cpus at 2 tasks per executor
+25/05/18 11:49:31 INFO ResourceProfileManager: Added ResourceProfile id: 0
+25/05/18 11:49:31 INFO SecurityManager: Changing view acls to: C88143B
+25/05/18 11:49:31 INFO SecurityManager: Changing modify acls to: C88143B
+25/05/18 11:49:31 INFO SecurityManager: Changing view acls groups to: 
+25/05/18 11:49:31 INFO SecurityManager: Changing modify acls groups to: 
+25/05/18 11:49:31 INFO SecurityManager: SecurityManager: authentication disabled; ui acls disabled; users with view permissions: C88143B; groups with view permissions: EMPTY; users with modify permissions: C88143B; groups with modify permissions: EMPTY
+25/05/18 11:49:32 INFO Utils: Successfully started service 'sparkDriver' on port 62903.
+25/05/18 11:49:32 INFO SparkEnv: Registering MapOutputTracker
+25/05/18 11:49:32 INFO SparkEnv: Registering BlockManagerMaster
+25/05/18 11:49:32 INFO BlockManagerMasterEndpoint: Using org.apache.spark.storage.DefaultTopologyMapper for getting topology information
+25/05/18 11:49:32 INFO BlockManagerMasterEndpoint: BlockManagerMasterEndpoint up
+Exception in thread "main" java.lang.IllegalAccessError: class org.apache.spark.storage.StorageUtils$ (in unnamed module @0x7161d8d1) cannot access class sun.nio.ch.DirectBuffer (in module java.base) because module java.base does not export sun.nio.ch to unnamed module @0x7161d8d1
+	at org.apache.spark.storage.StorageUtils$.<init>(StorageUtils.scala:213)
+	at org.apache.spark.storage.StorageUtils$.<clinit>(StorageUtils.scala)
+	at org.apache.spark.storage.BlockManagerMasterEndpoint.<init>(BlockManagerMasterEndpoint.scala:121)
+	at org.apache.spark.SparkEnv$.$anonfun$create$9(SparkEnv.scala:353)
+	at org.apache.spark.SparkEnv$.registerOrLookupEndpoint$1(SparkEnv.scala:290)
+	at org.apache.spark.SparkEnv$.create(SparkEnv.scala:339)
+	at org.apache.spark.SparkEnv$.createDriverEnv(SparkEnv.scala:194)
+	at org.apache.spark.SparkContext.createSparkEnv(SparkContext.scala:284)
+	at org.apache.spark.SparkContext.<init>(SparkContext.scala:478)
+	at org.apache.spark.SparkContext$.getOrCreate(SparkContext.scala:2883)
+	at org.apache.spark.sql.SparkSession$Builder.$anonfun$getOrCreate$2(SparkSession.scala:1099)
+	at scala.Option.getOrElse(Option.scala:189)
+	at org.apache.spark.sql.SparkSession$Builder.getOrCreate(SparkSession.scala:1093)
+	at com.experian.edf.oxygen.context.SparkOxygenAppContext.initSparkSession(SparkOxygenAppContext.scala:92)
+	at com.experian.edf.oxygen.context.SparkOxygenAppContext.sparkSession$lzycompute(SparkOxygenAppContext.scala:80)
+	at com.experian.edf.oxygen.context.SparkOxygenAppContext.sparkSession(SparkOxygenAppContext.scala:79)
+	at com.experian.edf.oxygen.utils.SparkFileUtils.exists(SparkFileUtils.scala:243)
+	at com.experian.edf.oxygen.validator.OxygenApplicationContextOxyValidator.$anonfun$validate$6(OxygenApplicationContextOxyValidator.scala:110)
+	at com.experian.edf.oxygen.validator.OxygenApplicationContextOxyValidator.$anonfun$validate$6$adapted(OxygenApplicationContextOxyValidator.scala:109)
+	at scala.collection.immutable.List.foreach(List.scala:431)
+	at com.experian.edf.oxygen.validator.OxygenApplicationContextOxyValidator.rejectOrCreateIfDirectoryNotPresentOrAccessible$1(OxygenApplicationContextOxyValidator.scala:109)
+	at com.experian.edf.oxygen.validator.OxygenApplicationContextOxyValidator.validate(OxygenApplicationContextOxyValidator.scala:28)
+	at com.experian.edf.oxygen.validator.SparkOxygenApplicationContextOxyValidator.validate(SparkOxygenApplicationContextOxyValidator.scala:14)
+	at com.experian.edf.oxygen.validator.ValidatorUtils$.invokeValidator(ValidatorUtils.scala:18)
+	at com.experian.edf.oxygen.context.ApplicationContext$.create(ApplicationContext.scala:44)
+	at com.experian.edf.oxygen.validation.engines.initializer.SparkValidatorInitializer$.create(SparkValidatorInitializer.scala:13)
+	at com.experian.edf.oxygen.validation.app.SparkValidationApp$.main(SparkValidationApp.scala:10)
+	at com.experian.edf.oxygen.validation.app.SparkValidationApp.main(SparkValidationApp.scala)
+Disconnected from the target VM, address: '127.0.0.1:62893', transport: 'socket'

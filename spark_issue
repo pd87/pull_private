@@ -50,3 +50,73 @@ Exception in thread "main" java.lang.IllegalAccessError: class org.apache.spark.
 	at com.experian.edf.oxygen.validation.app.SparkValidationApp$.main(SparkValidationApp.scala:10)
 	at com.experian.edf.oxygen.validation.app.SparkValidationApp.main(SparkValidationApp.scala)
 Disconnected from the target VM, address: '127.0.0.1:62893', transport: 'socket'
+
+--------------------------------------------------------------------------------------------------
+
+25/05/19 09:24:35 ERROR TorrentBroadcast: Store broadcast broadcast_0 fail, remove all pieces of the broadcast
+Exception in thread "main" java.lang.IllegalArgumentException: Unable to create serializer "com.esotericsoftware.kryo.serializers.FieldSerializer" for class: java.nio.HeapByteBuffer
+	at com.esotericsoftware.kryo.factories.ReflectionSerializerFactory.makeSerializer(ReflectionSerializerFactory.java:65)
+	at com.esotericsoftware.kryo.factories.ReflectionSerializerFactory.makeSerializer(ReflectionSerializerFactory.java:43)
+	at com.esotericsoftware.kryo.Kryo.newDefaultSerializer(Kryo.java:396)
+	at com.twitter.chill.KryoBase.newDefaultSerializer(KryoBase.scala:62)
+	at com.esotericsoftware.kryo.Kryo.getDefaultSerializer(Kryo.java:380)
+	at com.esotericsoftware.kryo.Kryo.register(Kryo.java:410)
+	at org.apache.spark.serializer.KryoSerializer.$anonfun$newKryo$2(KryoSerializer.scala:144)
+	at scala.collection.immutable.List.foreach(List.scala:431)
+	at org.apache.spark.serializer.KryoSerializer.newKryo(KryoSerializer.scala:143)
+	at org.apache.spark.serializer.KryoSerializer$$anon$1.create(KryoSerializer.scala:105)
+	at com.esotericsoftware.kryo.pool.KryoPoolQueueImpl.borrow(KryoPoolQueueImpl.java:48)
+	at org.apache.spark.serializer.KryoSerializer$PoolWrapper.borrow(KryoSerializer.scala:112)
+	at org.apache.spark.serializer.KryoSerializerInstance.borrowKryo(KryoSerializer.scala:401)
+	at org.apache.spark.serializer.KryoSerializationStream.<init>(KryoSerializer.scala:275)
+	at org.apache.spark.serializer.KryoSerializerInstance.serializeStream(KryoSerializer.scala:487)
+	at org.apache.spark.broadcast.TorrentBroadcast$.blockifyObject(TorrentBroadcast.scala:363)
+	at org.apache.spark.broadcast.TorrentBroadcast.writeBlocks(TorrentBroadcast.scala:161)
+	at org.apache.spark.broadcast.TorrentBroadcast.<init>(TorrentBroadcast.scala:99)
+	at org.apache.spark.broadcast.TorrentBroadcastFactory.newBroadcast(TorrentBroadcastFactory.scala:38)
+	at org.apache.spark.broadcast.BroadcastManager.newBroadcast(BroadcastManager.scala:78)
+	at org.apache.spark.SparkContext.broadcastInternal(SparkContext.scala:1657)
+	at org.apache.spark.SparkContext.broadcast(SparkContext.scala:1639)
+	at com.experian.edf.oxygen.lookup.SparkOxygenLookup.loadCache(SparkOxygenLookup.scala:30)
+	at com.experian.edf.oxygen.lookup.SparkOxygenLookup.<init>(SparkOxygenLookup.scala:21)
+	at com.experian.edf.oxygen.lookup.OxygenLookupService$.create(OxygenLookupService.scala:22)
+	at com.experian.edf.oxygen.base.OxygenService.<init>(OxygenService.scala:29)
+	at com.experian.edf.oxygen.base.OxygenOrchestratedService.<init>(OxygenOrchestratedService.scala:18)
+	at com.experian.edf.oxygen.validation.engines.Validator.<init>(Validator.scala:77)
+	at com.experian.edf.oxygen.validation.engines.SparkValidatorCustomMode.<init>(SparkValidatorCustomMode.scala:53)
+	at com.experian.edf.oxygen.validation.engines.Validator$.create(Validator.scala:58)
+	at com.experian.edf.oxygen.validation.engines.initializer.SparkValidatorInitializer$.create(SparkValidatorInitializer.scala:14)
+	at com.experian.edf.oxygen.validation.app.SparkValidationApp$.main(SparkValidationApp.scala:10)
+	at com.experian.edf.oxygen.validation.app.SparkValidationApp.main(SparkValidationApp.scala)
+Caused by: java.lang.reflect.InvocationTargetException
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance0(Native Method)
+	at java.base/jdk.internal.reflect.NativeConstructorAccessorImpl.newInstance(NativeConstructorAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingConstructorAccessorImpl.newInstance(DelegatingConstructorAccessorImpl.java:45)
+	at java.base/java.lang.reflect.Constructor.newInstanceWithCaller(Constructor.java:499)
+	at java.base/java.lang.reflect.Constructor.newInstance(Constructor.java:480)
+	at com.esotericsoftware.kryo.factories.ReflectionSerializerFactory.makeSerializer(ReflectionSerializerFactory.java:51)
+	... 32 more
+Caused by: java.lang.reflect.InaccessibleObjectException: Unable to make field final byte[] java.nio.ByteBuffer.hb accessible: module java.base does not "opens java.nio" to unnamed module @173ed316
+	at java.base/java.lang.reflect.AccessibleObject.checkCanSetAccessible(AccessibleObject.java:354)
+	at java.base/java.lang.reflect.AccessibleObject.checkCanSetAccessible(AccessibleObject.java:297)
+	at java.base/java.lang.reflect.Field.checkCanSetAccessible(Field.java:178)
+	at java.base/java.lang.reflect.Field.setAccessible(Field.java:172)
+	at com.esotericsoftware.kryo.serializers.FieldSerializer.buildValidFields(FieldSerializer.java:283)
+	at com.esotericsoftware.kryo.serializers.FieldSerializer.rebuildCachedFields(FieldSerializer.java:216)
+	at com.esotericsoftware.kryo.serializers.FieldSerializer.rebuildCachedFields(FieldSerializer.java:157)
+	at com.esotericsoftware.kryo.serializers.FieldSerializer.<init>(FieldSerializer.java:150)
+	at com.esotericsoftware.kryo.serializers.FieldSerializer.<init>(FieldSerializer.java:134)
+	at com.esotericsoftware.kryo.serializers.FieldSerializer.<init>(FieldSerializer.java:130)
+	... 38 more
+25/05/19 09:24:35 INFO SparkContext: Invoking stop() from shutdown hook
+25/05/19 09:24:35 INFO SparkContext: SparkContext is stopping with exitCode 0.
+25/05/19 09:24:35 INFO SparkUI: Stopped Spark web UI at http://127.0.0.1:4040
+25/05/19 09:24:35 INFO MapOutputTrackerMasterEndpoint: MapOutputTrackerMasterEndpoint stopped!
+25/05/19 09:24:35 INFO MemoryStore: MemoryStore cleared
+25/05/19 09:24:35 INFO BlockManager: BlockManager stopped
+25/05/19 09:24:35 INFO BlockManagerMaster: BlockManagerMaster stopped
+25/05/19 09:24:35 INFO OutputCommitCoordinator$OutputCommitCoordinatorEndpoint: OutputCommitCoordinator stopped!
+25/05/19 09:24:35 INFO SparkContext: Successfully stopped SparkContext
+25/05/19 09:24:35 INFO ShutdownHookManager: Shutdown hook called
+25/05/19 09:24:35 INFO ShutdownHookManager: Deleting directory C:\Users\c88143b\AppData\Local\Temp\spark-642089f5-1857-4ed8-96d1-44c8cbaf4baf
+

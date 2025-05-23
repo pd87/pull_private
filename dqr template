@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        @page {
+            margin: 40px;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+            position: relative;
+            min-height: 100%;
+            margin: 0;
+            padding-bottom: 100px; /* space for footer */
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .header img {
+            height: 50px;
+            margin-right: 10px;
+        }
+
+        .title {
+            font-size: 16pt;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 12pt;
+            margin-bottom: 10px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+            table-layout: fixed;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px;
+            vertical-align: top;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+
+        td:first-child {
+            width: 75%;
+        }
+
+        td:last-child {
+            width: 25%;
+        }
+
+        .no-border td {
+            border: none;
+        }
+
+        .note {
+            color: #555;
+            font-size: 8pt;
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <img src="logo.png" alt="Logo">
+        <div>
+            <div class="title">Experian Data Quality Report</div>
+            <div class="subtitle">Suit Filed Willful Defaulter</div>
+        </div>
+    </div>
+
+    <table class="no-border">
+        <tr>
+            <td><strong>File Name:</strong></td>
+            <td th:text="${fileName}">Filename.txt</td>
+        </tr>
+        <tr>
+            <td><strong>Member Name:</strong></td>
+            <td th:text="${memberName}">ABC Bank</td>
+        </tr>
+    </table>
+
+    <table>
+        <thead><tr><th colspan="2">Data Load Summary</th></tr></thead>
+        <tr><td>Total Input Records</td><td th:text="${totalRecords}">5</td></tr>
+        <tr><td>Total Accepted Records</td><td th:text="${validRecords}">1</td></tr>
+        <tr><td>Total Rejected Records</td><td th:text="${invalidRecords}">4</td></tr>
+        <tr><td>Acceptance %</td><td th:text="${acceptancePercent}">20.00</td></tr>
+        <tr><td>Rejection %</td><td th:text="${rejectionPercent}">80.00</td></tr>
+    </table>
+
+    <table th:if="${hasRejectReasons}">
+        <thead><tr><th colspan="2">Reject Record Summary</th></tr></thead>
+        <tr th:each="reason : ${rejectReasons}">
+            <td th:text="${reason.key}">Reason</td>
+            <td th:text="${reason.value}">Count</td>
+        </tr>
+    </table>
+
+    <table th:if="${hasWarnings}">
+        <thead><tr><th colspan="2">Warnings</th></tr></thead>
+        <tr><td>PAN Not provided</td><td th:text="${panMissing}">0</td></tr>
+        <tr><td>Invalid PAN provided</td><td th:text="${invalidPan}">0</td></tr>
+    </table>
+
+    <div class="note">
+        <p>
+            Note: ECICI employs a rigorous validation process to ensure the accuracy, proper format,
+            and completeness of data before it is uploaded to the database. The Data Quality Report is 
+            generated based on the results of these validations. Further, the process of data 
+            ingestion involves standard data transformation necessary for system integration, 
+            which does not modify the original content or integrity of the data submitted in any form.
+            ECICI certifies that the data submitted by you has been uploaded into the database without any distortion.
+        </p>
+    </div>
+
+</body>
+</html>

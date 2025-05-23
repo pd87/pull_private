@@ -15,9 +15,11 @@ import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.Property;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
+import com.itextpdf.layout.splitting.DefaultSplitCharacters;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.layout.element.Image;
@@ -77,7 +79,7 @@ public class DQRPdfReportGenerator {
             document.add(TopTable);
             
             // Modified details table with fixed column widths
-            Table detailsTable = new Table(new float[] { 150, 350 }); // Fixed widths in points
+            Table detailsTable = new Table(new float[] { 450, 50 }); // Fixed widths in points
             detailsTable.setWidth(UnitValue.createPointValue(500)); // Total table width
             
             // First column (label)
@@ -90,7 +92,8 @@ public class DQRPdfReportGenerator {
                     .setTextAlignment(TextAlignment.LEFT);
             Cell fileNameCell = new Cell().add(fileNamePara)
                     .setPadding(5)
-                    .setTextAlignment(TextAlignment.LEFT);
+                    .setTextAlignment(TextAlignment.LEFT).setWordSpacing(0);
+            fileNameCell.setProperty(Property.SPLIT_CHARACTERS, new DefaultSplitCharacters());
             detailsTable.addCell(fileNameCell);
 
             // Member Name row

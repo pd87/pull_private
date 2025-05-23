@@ -1,28 +1,174 @@
-// Modified details table with fixed column widths
-Table detailsTable = new Table(new float[] { 100f, 400f }); // total width = 500 points
-detailsTable.setWidth(UnitValue.createPointValue(500)); // fixed total width
+package in.experian.dataloadingtool.util;
 
-// File Name row
-Cell fileLabelCell = new Cell().add(new Paragraph("File Name"))
-        .setTextAlignment(TextAlignment.LEFT)
-        .setPadding(5);
-detailsTable.addCell(fileLabelCell);
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.util.HashMap;
+import java.util.Map;
 
-Paragraph fileNamePara = new Paragraph(fileUploadModel.getDatafileName())
-        .setTextAlignment(TextAlignment.LEFT)
-        .setMultipliedLeading(1.2f)
-        .setFontSize(10f);
-fileNamePara.setProperty(Property.SPLIT_CHARACTERS, new DefaultSplitCharacters());
+import org.springframework.core.io.ClassPathResource;
 
-Cell fileNameCell = new Cell().add(fileNamePara)
-        .setTextAlignment(TextAlignment.LEFT)
-        .setPadding(5);
-detailsTable.addCell(fileNameCell);
+import com.itextpdf.io.image.ImageData;
+import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.pdf.PdfDocument;
+import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.Border;
+import com.itextpdf.layout.element.Cell;
+import com.itextpdf.layout.element.Image;
+import com.itextpdf.layout.element.Paragraph;
+import com.itextpdf.layout.element.Table;
+import com.itextpdf.layout.properties.Property;
+import com.itextpdf.layout.properties.TextAlignment;
+import com.itextpdf.layout.properties.UnitValue;
+import com.itextpdf.layout.properties.VerticalAlignment;
+import com.itextpdf.layout.splitting.ISplitCharacters;
+import com.itextpdf.kernel.pdf.canvas.parser.util.GlyphLine;
 
-// Member Name row
-detailsTable.addCell(new Cell().add(new Paragraph("Member Name"))
-        .setTextAlignment(TextAlignment.LEFT)
-        .setPadding(5));
-detailsTable.addCell(new Cell().add(new Paragraph(bankDetailsDTO.getBankName()))
-        .setTextAlignment(TextAlignment.LEFT)
-        .setPadding(5));
+import in.experian.dataloadingtool.model.fileupload.BankDetailsDTO;
+import in.experian.dataloadingtool.model.fileupload.FileUploadModel;
+
+public class DQRPdfReportGenerator {
+
+    // Custom split logic to allow wrapping at underscores, hyphens, etc.
+    public static class CustomSplitCharacters implements ISplitCharacters {
+        @Override
+        public boolean isSplitCharacter(GlyphLine text, int glyphPos) {
+            char c = (char) text.get(glyphPos).getUnicode();
+            return c == '_' || c == '-' || c == '.' || c == '/' || Character.isWhitespace(c);
+        }
+    }
+
+    public static void generateDQRReport(String pdfPath, int validSize, int invalidSize, int panMissingSize,
+                                         FileUploadModel fileUploadModel, Map<String, Integer> invalidResons,
+                                         int invalidPanSize, BankDetailsDTO bankDetailsDTO) {
+        try {
+            DecimalFormat df = new DecimalFormat("#.##");
+            int total = validSize + invalidSize;
+            float validPer = ((float) validSize / total) * 100;
+            float invalidPer = ((float) invalidSize / total) * 100;
+
+            PdfWriter writer = new PdfWriter(new FileOutputStream(pdfPath));
+            PdfDocument pdfDoc = new PdfDocument(writer);
+            Document document = new Document(pdfDoc);
+
+            ClassPathResource resource = new ClassPathResource("static/images/experian.png");
+            InputStream logoStream = resource.getInputStream();
+            ImageData imageData = ImageDataFactory.create(logoStream.readAllBytes());
+            Image logo = new Image(imageData).scaleToFit(70, 70);
+
+            Table headerTable = new Table(UnitValue.createPercentArray(new float[]{1, 8})).useAllAvailableWidth();
+            headerTable.addCell(new Cell().add(logo).setBorder(Border.NO_BORDER)
+                    .setVerticalAlignment(VerticalAlignment.MIDDLE));
+
+            Paragraph headerText = new Paragraph().add("")
+                    .add("").setTextAlignment(TextAlignment.CENTER)
+                    .setFontSize(14).simulateBold();
+
+            headerTable.addCell(new Cell().add(headerText).setVerticalAlignment(VerticalAlignment.MIDDLE)
+                    .setBorder(Border.NO_BORDER));
+            document.add(headerTable);
+            document.add(new Paragraph("\n"));
+
+            Table topTable = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
+            topTable.setWidth(UnitValue.createPercentValue(100));
+            topTable.addCell(new Cell(1, 2).add(new Paragraph("Experian Data Quality Report"))
+                    .setTextAlignment(TextAlignment.CENTER));
+            topTable.addCell(new Cell(1, 2).add(new Paragraph("")).setTextAlignment(TextAlignment.CENTER).setHeight(5));
+            topTable.addCell(new Cell(1, 2).add(new Paragraph("Suit Filed Willful Defaulter"))
+                    .setTextAlignment(TextAlignment.CENTER));
+            document.add(topTable);
+
+            // Details Table with Fixed Widths and Wrapping
+            Table detailsTable = new Table(new float[]{100f, 400f});
+            detailsTable.setWidth(UnitValue.createPointValue(500));
+
+            // File Name Row
+            detailsTable.addCell(new Cell().add(new Paragraph("File Name"))
+                    .setTextAlignment(TextAlignment.LEFT).setPadding(5));
+
+            Paragraph fileNamePara = new Paragraph(fileUploadModel.getDatafileName())
+                    .setTextAlignment(TextAlignment.LEFT)
+                    .setFontSize(10f)
+                    .setMultipliedLeading(1.2f);
+            fileNamePara.setProperty(Property.SPLIT_CHARACTERS, new CustomSplitCharacters());
+
+            Cell fileNameCell = new Cell().add(fileNamePara)
+                    .setTextAlignment(TextAlignment.LEFT)
+                    .setPadding(5);
+            detailsTable.addCell(fileNameCell);
+
+            // Member Name Row
+            detailsTable.addCell(new Cell().add(new Paragraph("Member Name"))
+                    .setTextAlignment(TextAlignment.LEFT).setPadding(5));
+            detailsTable.addCell(new Cell().add(new Paragraph(bankDetailsDTO.getBankName()))
+                    .setTextAlignment(TextAlignment.LEFT).setPadding(5));
+
+            document.add(detailsTable);
+            document.add(new Paragraph("\n"));
+
+            Table summaryTable = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
+            summaryTable.addCell(new Cell(1, 2).add(new Paragraph("Data Load Summary"))
+                    .setTextAlignment(TextAlignment.CENTER));
+
+            summaryTable.addCell("Total Input Records");
+            summaryTable.addCell("" + total);
+            summaryTable.addCell("Total Accepted Records");
+            summaryTable.addCell("" + validSize);
+            summaryTable.addCell("Total Rejected Records");
+            summaryTable.addCell("" + invalidSize);
+            summaryTable.addCell("Acceptance %");
+            summaryTable.addCell("" + df.format(validPer));
+            summaryTable.addCell("Rejection %");
+            summaryTable.addCell("" + df.format(invalidPer));
+            document.add(summaryTable);
+            document.add(new Paragraph("\n"));
+
+            if (!invalidResons.isEmpty()) {
+                Table rejectTable = new Table(UnitValue.createPercentArray(new float[]{4, 1})).useAllAvailableWidth();
+                rejectTable.addCell(new Cell(1, 2).add(new Paragraph("Reject Record Summary"))
+                        .setTextAlignment(TextAlignment.CENTER));
+
+                for (var entry : invalidResons.entrySet()) {
+                    rejectTable.addCell(entry.getKey());
+                    rejectTable.addCell(String.valueOf(entry.getValue()));
+                }
+                document.add(rejectTable);
+                document.add(new Paragraph("\n"));
+            }
+
+            if (panMissingSize > 0 || invalidPanSize > 0) {
+                Table warningTable = new Table(UnitValue.createPercentArray(new float[]{4, 1}))
+                        .useAllAvailableWidth();
+                warningTable.addCell(new Cell(1, 2).add(new Paragraph("Warning"))
+                        .setTextAlignment(TextAlignment.CENTER));
+                warningTable.addCell("PAN Not provided");
+                warningTable.addCell("" + panMissingSize);
+                warningTable.addCell("Invalid PAN provided");
+                warningTable.addCell("" + invalidPanSize);
+                document.add(warningTable);
+                document.add(new Paragraph("\n"));
+            }
+
+            document.add(new Paragraph(
+                    "\nNote: ECICI employs a rigorous validation process to ensure the accuracy, proper format,"
+                            + " and completeness of data before it is uploaded to the database. The Data Quality Report is "
+                            + "generated based on the results of these validations. Further, the process of data "
+                            + "ingestion involves standard data transformation necessary for system integration, "
+                            + "which does not modify the original content or integrity of the data submitted in any form."
+                            + "ECICI certifies that the data submitted by you has been uploaded into the database without any distortion."));
+
+            document.close();
+            System.out.println("PDF created at: " + pdfPath);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        FileUploadModel model = new FileUploadModel();
+        model.setDatafileName("dfs_dfgdgdfgfd_gshdfhsf_sgsdgdfsh_fgjf_ff.txt");
+        generateDQRReport("J:\\logs\\dataloading_files\\DQRReports\\LD_SF_COP0000101_27082024.csv_1737834502792.pdf", 1,
+                4, 4, model, new HashMap<>(), 4, new BankDetailsDTO(34343L, "ABCD"));
+    }
+}

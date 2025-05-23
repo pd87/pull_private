@@ -3,3 +3,199 @@
     <artifactId>openhtmltopdf-pdfbox</artifactId>
     <version>1.0.10</version>
 </dependency>
+--------------------------------
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 10pt;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+        }
+        .header img {
+            height: 50px;
+            margin-right: 10px;
+        }
+        .title {
+            font-size: 16pt;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+        }
+        td, th {
+            border: 1px solid #ccc;
+            padding: 6px;
+            vertical-align: top;
+            word-wrap: break-word;
+            word-break: break-word;
+        }
+        .no-border td {
+            border: none;
+        }
+        .note {
+            font-size: 9pt;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <img src="logo.png" alt="Logo">
+        <div>
+            <div class="title">Experian Data Quality Report</div>
+            <div style="text-align: center;">Suit Filed Willful Defaulter</div>
+        </div>
+    </div>
+
+    <table class="no-border">
+        <tr>
+            <td><strong>File Name:</strong></td>
+            <td th:text="${fileName}">Filename.txt</td>
+        </tr>
+        <tr>
+            <td><strong>Member Name:</strong></td>
+            <td th:text="${memberName}">ABC Bank</td>
+        </tr>
+    </table>
+
+    <table>
+        <thead><tr><th colspan="2">Data Load Summary</th></tr></thead>
+        <tr><td>Total Input Records</td><td th:text="${totalRecords}">5</td></tr>
+        <tr><td>Total Accepted Records</td><td th:text="${validRecords}">1</td></tr>
+        <tr><td>Total Rejected Records</td><td th:text="${invalidRecords}">4</td></tr>
+        <tr><td>Acceptance %</td><td th:text="${acceptancePercent}">20.00</td></tr>
+        <tr><td>Rejection %</td><td th:text="${rejectionPercent}">80.00</td></tr>
+    </table>
+
+    <table th:if="${hasRejectReasons}">
+        <thead><tr><th colspan="2">Reject Record Summary</th></tr></thead>
+        <tr th:each="reason : ${rejectReasons}">
+            <td th:text="${reason.key}">Reason</td>
+            <td th:text="${reason.value}">Count</td>
+        </tr>
+    </table>
+
+    <table th:if="${hasWarnings}">
+        <thead><tr><th colspan="2">Warning</th></tr></thead>
+        <tr><td>PAN Not provided</td><td th:text="${panMissing}">0</td></tr>
+        <tr><td>Invalid PAN provided</td><td th:text="${invalidPan}">0</td></tr>
+    </table>
+
+    <div class="note">
+        <p>
+        Note: ECICI employs a rigorous validation process to ensure the accuracy, proper format,
+        and completeness of data before it is uploaded to the database. The Data Quality Report is 
+        generated based on the results of these validations. Further, the process of data 
+        ingestion involves standard data transformation necessary for system integration, 
+        which does not modify the original content or integrity of the data submitted in any form.
+        ECICI certifies that the data submitted by you has been uploaded into the database without any distortion.
+        </p>
+    </div>
+</body>
+</html>
+----------------------------------------
+package in.experian.dataloadingtool.util;
+
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.text.DecimalFormat;
+import java.util.*;
+
+import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import in.experian.dataloadingtool.model.fileupload.BankDetailsDTO;
+import in.experian.dataloadingtool.model.fileupload.FileUploadModel;
+import org.springframework.core.io.ClassPathResource;
+import org.thymeleaf.TemplateEngine;
+import org.thymeleaf.context.Context;
+import org.thymeleaf.templateresolver.ClassLoaderTemplateResolver;
+
+public class DQRPdfReportGenerator {
+
+    public static void generateDQRReport(String pdfPath, int validSize, int invalidSize, int panMissingSize,
+                                         FileUploadModel fileUploadModel, Map<String, Integer> invalidReasons,
+                                         int invalidPanSize, BankDetailsDTO bankDetailsDTO) {
+
+        try {
+            int total = validSize + invalidSize;
+            float validPercent = total > 0 ? ((float) validSize / total) * 100 : 0;
+            float invalidPercent = total > 0 ? ((float) invalidSize / total) * 100 : 0;
+
+            // Setup Thymeleaf template engine
+            ClassLoaderTemplateResolver resolver = new ClassLoaderTemplateResolver();
+            resolver.setPrefix("templates/");
+            resolver.setSuffix(".html");
+            resolver.setTemplateMode("HTML");
+            resolver.setCharacterEncoding("UTF-8");
+
+            TemplateEngine templateEngine = new TemplateEngine();
+            templateEngine.setTemplateResolver(resolver);
+
+            // Prepare data
+            Context context = new Context();
+            context.setVariable("fileName", fileUploadModel.getDatafileName());
+            context.setVariable("memberName", bankDetailsDTO.getBankName());
+            context.setVariable("totalRecords", total);
+            context.setVariable("validRecords", validSize);
+            context.setVariable("invalidRecords", invalidSize);
+            context.setVariable("acceptancePercent", new DecimalFormat("#.##").format(validPercent));
+            context.setVariable("rejectionPercent", new DecimalFormat("#.##").format(invalidPercent));
+            context.setVariable("hasRejectReasons", !invalidReasons.isEmpty());
+            context.setVariable("rejectReasons", invalidReasons.entrySet());
+            context.setVariable("hasWarnings", panMissingSize > 0 || invalidPanSize > 0);
+            context.setVariable("panMissing", panMissingSize);
+            context.setVariable("invalidPan", invalidPanSize);
+
+            // Render HTML content
+            String html = templateEngine.process("dqr-template", context);
+
+            // Prepare logo resource path
+            InputStream logoStream = new ClassPathResource("static/images/experian.png").getInputStream();
+            byte[] logoBytes = logoStream.readAllBytes();
+            String base64Logo = Base64.getEncoder().encodeToString(logoBytes);
+            html = html.replace("src=\"logo.png\"", "src=\"data:image/png;base64," + base64Logo + "\"");
+
+            // Generate PDF
+            try (FileOutputStream os = new FileOutputStream(pdfPath)) {
+                PdfRendererBuilder builder = new PdfRendererBuilder();
+                builder.useFastMode();
+                builder.withHtmlContent(html, null);
+                builder.toStream(os);
+                builder.run();
+            }
+
+            System.out.println("PDF created at: " + pdfPath);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void main(String[] args) {
+        FileUploadModel model = new FileUploadModel();
+        model.setDatafileName("longfilename_without_spaces_or_breaks.txt");
+        Map<String, Integer> reasons = new HashMap<>();
+        reasons.put("Invalid DOB format", 2);
+        reasons.put("Missing address", 1);
+        generateDQRReport("output.pdf", 1, 4, 2, model, reasons, 2, new BankDetailsDTO(123L, "Sample Bank"));
+    }
+}
+--------------------------------------------
+<dependency>
+    <groupId>org.thymeleaf</groupId>
+    <artifactId>thymeleaf</artifactId>
+    <version>3.1.2.RELEASE</version>
+</dependency>
+
+<dependency>
+    <groupId>com.openhtmltopdf</groupId>
+    <artifactId>openhtmltopdf-pdfbox</artifactId>
+    <version>1.0.10</version>
+</dependency>

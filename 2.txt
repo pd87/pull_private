@@ -1,3 +1,15 @@
+Hi Pranav,
+
+Thank you so much for the kind words and recognition. I truly appreciate the support and collaboration from the entire team, which has been instrumental in overcoming challenges and moving the CIR Experian API integration forward.
+
+Looking forward to continuing our progress together and successfully achieving the upcoming milestones.
+
+Thanks & Regards,
+Pandurang Darkunde
+
+
+
+
 public static Map<String, FintechCapsDaysSummary> processEnquiriesByRank(
     List<Enqrhist> enquiries, 
     Map<String, String> userMapping,
